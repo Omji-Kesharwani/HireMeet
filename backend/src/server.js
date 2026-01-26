@@ -18,9 +18,10 @@ app.use(
 );
 dotenv.config();
 app.use(express.json());
+// console.log("INNGEST VALUE:", inngest);
 
 
-app.use("/api/inngest",serve({client: inngest,functions}))
+app.use("/api/inngest",serve({client: inngest,functions}));
 app.get("/health", (req, res) => {
   res.status(200).json({msg:"Server is running and up!"});
 })

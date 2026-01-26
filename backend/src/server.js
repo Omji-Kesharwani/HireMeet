@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { ENV } from "./lib/env.js";
 import cors from "cors";
 import { connectDB } from "./lib/db.js";
+import {serve} from "inngest/express";
 const app = express();
 app.use(
   cors({
@@ -14,7 +15,10 @@ app.use(
   })
 );
 dotenv.config();
+app.use(express.json());
 
+
+app.use("/api/inngest",serve({client:inngest,functions}))
 app.get("/health", (req, res) => {
   res.status(200).json({msg:"Server is running and up!"});
 })

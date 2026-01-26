@@ -6,6 +6,10 @@ import { connectDB } from "./lib/db.js";
 import {serve} from "inngest/express";
 import { inngest } from "./lib/inngest.js";
 import { functions } from "./lib/inngest.js";
+
+console.log("SERVER FILE LOADED");
+console.log("INNGEST IMPORT VALUE:", inngest);
+console.log("FUNCTIONS IMPORT VALUE:", functions);
 const app = express();
 app.use(
   cors({

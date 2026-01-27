@@ -5,6 +5,7 @@ import cors from "cors";
 import { connectDB } from "./lib/db.js";
 import {serve} from "inngest/express";
 const app = express();
+dotenv.config();
 app.use(
   cors({
     origin: [
@@ -14,7 +15,7 @@ app.use(
     credentials: true
   })
 );
-dotenv.config();
+
 app.use(express.json());
 
 

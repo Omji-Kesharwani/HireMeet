@@ -9,25 +9,25 @@ const syncUser = inngest.createFunction(
   {event:"clerk/user.created"},
   async ({event}) => {
     await connectDB();
-    const {clerkId, email,first_name,last_name, image_url} = event.data;
-    const existingUser = await User.findOne({clerkId});
-    if(existingUser){
-      console.log("User already exists:", existingUser);
-      return;
+    const {id, email_addresses,first_name,last_name,image_url} = event.data;
+    const newUser ={
+      clerkId: id,
+      email:email_addresses[0]?.email_address,
+      name: `${first_name || ""} ${last_name || ""}`,
+      profileImage: image_url
     }
-    const user = new User({clerkId, email, name: `${first_name} ${last_name}`, profileImage: image_url});
-    await User.create(user);
-    console.log("User synced to DB:", user);
+
+   await User.create(newUser);
   }
 )
 
 const deleteUserFromDB = inngest.createFunction(
-  {id:"delete-user"},
+  {id:"delete-user-from-db"},
   {event:"clerk/user.deleted"},
   async ({event}) => {
     await connectDB();
-    const {clerkId} = event.data;
-    await User.deleteOne({clerkId});
+    const {id} = event.data;
+    await User.deleteOne({clerkId: id});
    
   }
 )

@@ -5,6 +5,9 @@ import cors from "cors";
 import { connectDB } from "./lib/db.js";
 import {serve} from "inngest/express";
 import {inngest, functions} from "./lib/inngest.js";
+import { clerkMiddleware } from '@clerk/express'
+import { protectRoute } from "./middleware/protectRoute.js";
+import chatRoutes from "./routes/chatRoutes.js";
 const app = express();
 dotenv.config();
 app.use(
@@ -18,15 +21,14 @@ app.use(
 );
 
 app.use(express.json());
-
+app.use(clerkMiddleware())
 
 app.use("/api/inngest",serve({client:inngest,functions}))
+app.use("/api/chat",chatRoutes)
 app.get("/health", (req, res) => {
   res.status(200).json({msg:"Server is running and up!"});
 })
-app.get("/book", (req, res) => {
-  res.status(200).json({msg:"Hello books"});
-})
+
 
 
 const startServer = async () => {

@@ -13,6 +13,9 @@ if (!PUBLISHABLE_KEY) {
   throw new Error("Missing Clerk Publishable Key");
 }
 
+// ✅ Correct
+const queryClient = new QueryClient()
+
 const queryClient = new QueryClient();
 
 createRoot(document.getElementById("root")).render(

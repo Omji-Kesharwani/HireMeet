@@ -17,20 +17,18 @@ const __dirname = path.resolve();
 
 // middleware
 app.use(express.json());
-// credentials:true meaning?? => server allows a browser to include cookies on request
+// CORS: allow origins from env (CLIENT_URL for production) and localhost for dev
+const allowedOrigins = ["http://localhost:5173", ENV.CLIENT_URL].filter(Boolean);
+
+const normalizeOrigin = (o) => (o ? o.replace(/\/$/, "") : "");
+
 app.use(
   cors({
     origin: (origin, callback) => {
-      const allowedOrigins = [
-        "http://localhost:5173",
-        process.env.CLIENT_URL,
-      ];
-
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
+      if (!origin) return callback(null, true);
+      const normalized = normalizeOrigin(origin);
+      const allowed = allowedOrigins.some((o) => normalizeOrigin(o) === normalized);
+      callback(allowed ? null : new Error("Not allowed by CORS"), allowed ? origin : false);
     },
     credentials: true,
   })

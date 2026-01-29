@@ -41,7 +41,7 @@ export async function createSession(req, res) {
   }
 }
 
-export async function getActiveSession(_, res) {
+export async function getActiveSessions(_, res) {
   try {
     const sessions = await Session.find({ status: "active" })
       .populate("host", "name profileImage email clerkId")
@@ -98,7 +98,7 @@ export async function joinSession(req, res) {
     const userId = req.user._id;
     const clerkId = req.user.clerkId;
 
-    const session = await Session.findById(id);
+    const session = await Session.findById(id).populate("host", "clerkId");
 
     if (!session) return res.status(404).json({ message: "Session not found" });
 
@@ -106,7 +106,8 @@ export async function joinSession(req, res) {
       return res.status(400).json({ message: "Cannot join a completed session" });
     }
 
-    if (session.host.toString() === userId.toString()) {
+    const hostId = session.host._id ? session.host._id.toString() : session.host.toString();
+    if (hostId === userId.toString()) {
       return res.status(400).json({ message: "Host cannot join their own session as participant" });
     }
 
@@ -117,7 +118,23 @@ export async function joinSession(req, res) {
     await session.save();
 
     const channel = chatClient.channel("messaging", session.callId);
-    await channel.addMembers([clerkId]);
+    try {
+      await channel.addMembers([clerkId]);
+    } catch (channelErr) {
+      // Channel may not exist if session was created before chat was set up
+      const msg = channelErr.message ?? String(channelErr);
+      if (msg.includes("Can't find channel") || channelErr.code === 16) {
+        const hostClerkId = session.host.clerkId?.toString?.() ?? session.host.clerkId;
+        const newChannel = chatClient.channel("messaging", session.callId, {
+          name: `Session ${session.callId}`,
+          created_by_id: hostClerkId,
+          members: [hostClerkId, clerkId],
+        });
+        await newChannel.create();
+      } else {
+        throw channelErr;
+      }
+    }
 
     res.status(200).json({ session });
   } catch (error) {

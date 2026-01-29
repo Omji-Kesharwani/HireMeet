@@ -1,12 +1,12 @@
+// Piston API is a service for code execution
+
 const PISTON_API = "https://emkc.org/api/v2/piston";
 
 const LANGUAGE_VERSIONS = {
   javascript: { language: "javascript", version: "18.15.0" },
   python: { language: "python", version: "3.10.0" },
   java: { language: "java", version: "15.0.2" },
-  cpp: { language: "cpp", version: "10.2.0" } // C++
 };
-
 
 /**
  * @param {string} language - programming language
@@ -78,7 +78,6 @@ function getFileExtension(language) {
     javascript: "js",
     python: "py",
     java: "java",
-    cpp: "cpp"
   };
 
   return extensions[language] || "txt";

@@ -1,9 +1,10 @@
 import { chatClient, streamClient } from "../lib/stream.js";
 import Session from "../models/Session.js";
 
-export async function createSession(req, res) {
-  let session = null;
+import { chatClient, streamClient } from "../lib/stream.js";
+import Session from "../models/Session.js";
 
+export async function createSession(req, res) {
   try {
     const { problem, difficulty } = req.body;
     const userId = req.user._id;
@@ -13,21 +14,35 @@ export async function createSession(req, res) {
       return res.status(400).json({ message: "Problem and difficulty are required" });
     }
 
-    // generate a unique call id for stream video
-    const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    // 🔒 HARD LOCK: one active session per host
+    const existingSession = await Session.findOne({
+      host: userId,
+      status: "active",
+    });
 
-    // create session in db
-    session = await Session.create({ problem, difficulty, host: userId, callId });
+    if (existingSession) {
+      return res.status(409).json({
+        message: "You already have an active session",
+        session: existingSession,
+      });
+    }
 
-    // create stream video call
+    // generate unique call id
+    const callId = `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    /* ===============================
+       1️⃣ CREATE STREAM VIDEO FIRST
+       =============================== */
     await streamClient.video.call("default", callId).getOrCreate({
       data: {
         created_by_id: clerkId,
-        custom: { problem, difficulty, sessionId: session._id.toString() },
+        custom: { problem, difficulty },
       },
     });
 
-    // chat messaging
+    /* ===============================
+       2️⃣ CREATE STREAM CHAT CHANNEL
+       =============================== */
     const channel = chatClient.channel("messaging", callId, {
       name: `${problem} Session`,
       created_by_id: clerkId,
@@ -36,21 +51,23 @@ export async function createSession(req, res) {
 
     await channel.create();
 
+    /* ===============================
+       3️⃣ CREATE DB SESSION (LAST)
+       =============================== */
+    const session = await Session.create({
+      problem,
+      difficulty,
+      host: userId,
+      callId,
+      status: "active",
+    });
+
     res.status(201).json({ session });
   } catch (error) {
-    console.log("Error in createSession controller:", error.message);
-    // rollback: remove session if Stream failed so we don't leave orphan sessions
-    if (session?._id) {
-      try {
-        await Session.findByIdAndDelete(session._id);
-      } catch (rollbackErr) {
-        console.error("Rollback failed:", rollbackErr.message);
-      }
-    }
+    console.error("Error in createSession:", error);
+
     res.status(500).json({
-      message: error.message?.includes("Stream") || error.message?.includes("channel")
-        ? "Failed to create room. Please try again."
-        : "Internal Server Error",
+      message: "Failed to create room. Please try again.",
     });
   }
 }

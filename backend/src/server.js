@@ -39,6 +39,14 @@ app.use("/api/inngest", serve({ client: inngest, functions }));
 app.use("/api/chat", chatRoutes);
 app.use("/api/sessions", sessionRoutes);
 
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "HireMeet API",
+    health: "/health",
+    docs: ENV.CLIENT_URL ? { frontend: ENV.CLIENT_URL } : undefined,
+  });
+});
+
 app.get("/health", (req, res) => {
   res.status(200).json({ msg: "api is up and running" });
 });

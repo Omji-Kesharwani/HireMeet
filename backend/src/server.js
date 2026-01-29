@@ -18,21 +18,8 @@ const __dirname = path.resolve();
 // middleware
 app.use(express.json());
 // CORS: allow origins from env (CLIENT_URL for production) and localhost for dev
-const allowedOrigins = ["http://localhost:5173", ENV.CLIENT_URL].filter(Boolean);
-
-const normalizeOrigin = (o) => (o ? o.replace(/\/$/, "") : "");
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      const normalized = normalizeOrigin(origin);
-      const allowed = allowedOrigins.some((o) => normalizeOrigin(o) === normalized);
-      callback(allowed ? null : new Error("Not allowed by CORS"), allowed ? origin : false);
-    },
-    credentials: true,
-  })
-);
+// In production (e.g. Render) set CLIENT_URL=https://hire-meet-chi.vercel.app (trailing slash ok)
+app.use(cors({ origin: ENV.CLIENT_URL, credentials: true }));
 app.use(clerkMiddleware()); // this adds auth field to request object: req.auth()
 
 app.use("/api/inngest", serve({ client: inngest, functions }));

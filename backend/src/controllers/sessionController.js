@@ -1,9 +1,6 @@
 import { chatClient, streamClient } from "../lib/stream.js";
 import Session from "../models/Session.js";
 
-import { chatClient, streamClient } from "../lib/stream.js";
-import Session from "../models/Session.js";
-
 export async function createSession(req, res) {
   try {
     const { problem, difficulty } = req.body;
@@ -14,35 +11,21 @@ export async function createSession(req, res) {
       return res.status(400).json({ message: "Problem and difficulty are required" });
     }
 
-    // 🔒 HARD LOCK: one active session per host
-    const existingSession = await Session.findOne({
-      host: userId,
-      status: "active",
-    });
+    // generate a unique call id for stream video
+    const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-    if (existingSession) {
-      return res.status(409).json({
-        message: "You already have an active session",
-        session: existingSession,
-      });
-    }
+    // create session in db
+    const session = await Session.create({ problem, difficulty, host: userId, callId });
 
-    // generate unique call id
-    const callId = `session_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
-    /* ===============================
-       1️⃣ CREATE STREAM VIDEO FIRST
-       =============================== */
+    // create stream video call
     await streamClient.video.call("default", callId).getOrCreate({
       data: {
         created_by_id: clerkId,
-        custom: { problem, difficulty },
+        custom: { problem, difficulty, sessionId: session._id.toString() },
       },
     });
 
-    /* ===============================
-       2️⃣ CREATE STREAM CHAT CHANNEL
-       =============================== */
+    // chat messaging
     const channel = chatClient.channel("messaging", callId, {
       name: `${problem} Session`,
       created_by_id: clerkId,
@@ -51,24 +34,10 @@ export async function createSession(req, res) {
 
     await channel.create();
 
-    /* ===============================
-       3️⃣ CREATE DB SESSION (LAST)
-       =============================== */
-    const session = await Session.create({
-      problem,
-      difficulty,
-      host: userId,
-      callId,
-      status: "active",
-    });
-
     res.status(201).json({ session });
   } catch (error) {
-    console.error("Error in createSession:", error);
-
-    res.status(500).json({
-      message: "Failed to create room. Please try again.",
-    });
+    console.log("Error in createSession controller:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 }
 
@@ -129,7 +98,7 @@ export async function joinSession(req, res) {
     const userId = req.user._id;
     const clerkId = req.user.clerkId;
 
-    const session = await Session.findById(id).populate("host", "clerkId");
+    const session = await Session.findById(id);
 
     if (!session) return res.status(404).json({ message: "Session not found" });
 
@@ -137,8 +106,7 @@ export async function joinSession(req, res) {
       return res.status(400).json({ message: "Cannot join a completed session" });
     }
 
-    const hostId = session.host._id ? session.host._id.toString() : session.host.toString();
-    if (hostId === userId.toString()) {
+    if (session.host.toString() === userId.toString()) {
       return res.status(400).json({ message: "Host cannot join their own session as participant" });
     }
 
@@ -149,23 +117,7 @@ export async function joinSession(req, res) {
     await session.save();
 
     const channel = chatClient.channel("messaging", session.callId);
-    try {
-      await channel.addMembers([clerkId]);
-    } catch (channelErr) {
-      // Channel may not exist if session was created before chat was set up
-      const msg = channelErr.message ?? String(channelErr);
-      if (msg.includes("Can't find channel") || channelErr.code === 16) {
-        const hostClerkId = session.host.clerkId?.toString?.() ?? session.host.clerkId;
-        const newChannel = chatClient.channel("messaging", session.callId, {
-          name: `Session ${session.callId}`,
-          created_by_id: hostClerkId,
-          members: [hostClerkId, clerkId],
-        });
-        await newChannel.create();
-      } else {
-        throw channelErr;
-      }
-    }
+    await channel.addMembers([clerkId]);
 
     res.status(200).json({ session });
   } catch (error) {

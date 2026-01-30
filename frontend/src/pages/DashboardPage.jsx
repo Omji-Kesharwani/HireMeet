@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router";
 import { useUser } from "@clerk/clerk-react";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useActiveSessions, useCreateSession, useMyRecentSessions } from "../hooks/useSessions";
 
 import Navbar from "../components/Navbar";
@@ -15,7 +15,6 @@ function DashboardPage() {
   const { user } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [roomConfig, setRoomConfig] = useState({ problem: "", difficulty: "" });
-  const isSubmittingRef = useRef(false);
 
   const createSessionMutation = useCreateSession();
 
@@ -24,8 +23,6 @@ function DashboardPage() {
 
   const handleCreateRoom = () => {
     if (!roomConfig.problem || !roomConfig.difficulty) return;
-    if (isSubmittingRef.current) return;
-    isSubmittingRef.current = true;
 
     createSessionMutation.mutate(
       {
@@ -36,9 +33,6 @@ function DashboardPage() {
         onSuccess: (data) => {
           setShowCreateModal(false);
           navigate(`/session/${data.session._id}`);
-        },
-        onSettled: () => {
-          isSubmittingRef.current = false;
         },
       }
     );
